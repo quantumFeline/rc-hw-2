@@ -3,7 +3,7 @@ import numpy as np
 import time
 
 
-from scipy.spatial.transform import Rotation as R
+from scipy.spatial.transform import Rotation as Rotation
 
 
 class DroneSimulator:
@@ -51,8 +51,9 @@ class DroneSimulator:
         return self.position_measurements
 
 
-    def xquat_to_euler(self, xquat):
-        return R.from_quat([xquat[1], xquat[2], xquat[3], xquat[0]]).as_euler('xyz', degrees=True)
+    @staticmethod
+    def xquat_to_euler(xquat):
+        return Rotation.from_quat([xquat[1], xquat[2], xquat[3], xquat[0]]).as_euler('xyz', degrees=True)
 
     def orientation_sensor(self):
         self.orientation_measurements.pop()
