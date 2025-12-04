@@ -73,7 +73,7 @@ We use a simplified robot description (MJCF) of the [Skydio X2](https://www.skyd
 The model and necessary assets were downloaded from [mujoco_menagerie](https://github.com/google-deepmind/mujoco_menagerie).
 Rotor gears were slightly changed to allow yaw control.
 
-![Image description](x2.png){: width="400" }
+![Image description](xml/x2.png){: width="400" }
 
 ### Drone Simulator
 

@@ -1,5 +1,5 @@
 <mujoco model="Skydio X2">
-  <compiler autolimits="true" assetdir="assets"/>
+  <compiler autolimits="true" assetdir="xml/assets"/>
 
   <option timestep="0.01" density="1.225" viscosity="1.8e-5"/>
 

@@ -17,7 +17,7 @@ def xquat_to_euler(xquat):
 
 
 def build_world(fixed_track: bool, rotated_gates: bool) -> str:
-    world = open("scene.xml").read()
+    world = open("xml/scene.xml").read()
     if not fixed_track:
         world = world.replace(
             '<body name="red_gate" pos="-2 0 1">',
@@ -77,17 +77,17 @@ def run_single_task(*, wind: bool, rotated_gates: bool, rendering_freq: float, f
 
     # TODO: Design PID control
     pid_roll = PID(
-        gain_prop = 0, gain_int = 0, gain_der = 0,
+        gain_prop = 1, gain_int = 1, gain_der = 1,
         sensor_period = model.opt.timestep, output_limits=(-100, 100)
     )
 
     pid_pitch = PID(
-        gain_prop = 0, gain_int = 0, gain_der = 0,
+        gain_prop = 1, gain_int = 1, gain_der = 1,
         sensor_period = model.opt.timestep, output_limits=(-100, 100)
     )
 
     pid_yaw = PID(
-        gain_prop = 0, gain_int = 0, gain_der = 0,
+        gain_prop = 1, gain_int = 1, gain_der = 1,
         sensor_period = model.opt.timestep, output_limits=(-100, 100)
     )
     # END OF TODO
@@ -173,6 +173,7 @@ def main(
         all_tasks: Run all four combinations of wind/rotated gates.
         runs: How many times to repeat each selected task.
         rendering_freq: Viewer rendering frequency multiplier (lower slows playback).
+        fixed_track: Randomly-generated or default obstacle track.
     """
     task_list = []
     if all_tasks:

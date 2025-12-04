@@ -14,5 +14,6 @@ class PID:
     # TODO: implement function which computes the output signal
     # The controller should output only in the range of output_limits
     def output_signal(self, commanded_variable: float, sensor_readings: list[float]) -> float:
+        self.gain_prop = commanded_variable # placeholder
         return 0
     # END OF TODO
