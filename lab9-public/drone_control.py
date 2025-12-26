@@ -77,17 +77,17 @@ def run_single_task(*, wind: bool, rotated_gates: bool, rendering_freq: float, f
 
     # TODO: Design PID control
     pid_roll = PID(
-        gain_prop = 1, gain_int = 0, gain_der = 0,
+        gain_prop = 0.1, gain_int = 0, gain_der = 0,
         sensor_period = model.opt.timestep, output_limits=(-100, 100)
     )
 
     pid_pitch = PID(
-        gain_prop = 1, gain_int = 0, gain_der = 0,
+        gain_prop = .1, gain_int = 0, gain_der = 0,
         sensor_period = model.opt.timestep, output_limits=(-100, 100)
     )
 
     pid_yaw = PID(
-        gain_prop = 1, gain_int = 0, gain_der = 0,
+        gain_prop = .1, gain_int = 0, gain_der = 0,
         sensor_period = model.opt.timestep, output_limits=(-100, 100)
     )
     # END OF TODO
@@ -109,16 +109,18 @@ def run_single_task(*, wind: bool, rotated_gates: bool, rendering_freq: float, f
     # TODO: Define additional variables if needed
     next_target_i = 1
     BASE_THRUST = 3.2496
+    SCALE_ROLL = 0.1
+    SCALE_PITCH = 0.1
     # END OF TODO
 
     try:
         for _ in range(SIM_TIME):
             current_pos, previous_pos = drone_simulator.position_sensor()
             current_orien, previous_orien = drone_simulator.orientation_sensor()
-            
+
             if np.linalg.norm(np.array(current_pos) - np.array(pos_targets[-1])) < 0.2:
                 break
-            
+
             # TODO: define the current target position
             if np.linalg.norm(np.array(current_pos) - np.array(pos_targets[next_target_i])) < 0.2:
                 next_target_i += 1
@@ -127,23 +129,20 @@ def run_single_task(*, wind: bool, rotated_gates: bool, rendering_freq: float, f
 
             # TODO: use PID controllers to steer the drone
 
-            def horizontal_distance(target, current_position):
-                return float(np.linalg.norm(np.array(target[0:2] - np.array(current_position[0:2]))))
+            def to_drone_coordinates(target_pos, drone_pos, drone_angle):
+                pass
 
-            def vertical_distance(target, current_position):
-                return target[2] - current_position[2]
             desired_thrust = BASE_THRUST
+            delta_x = current_pos[0] - pos_target[0]
+            delta_y = current_pos[1] - pos_target[1]
 
-            desired_roll  = horizontal_distance(pos_target, current_pos)
-            desired_pitch =   vertical_distance(pos_target, current_pos)
+            desired_roll = 0#delta_x * SCALE_ROLL
+            desired_pitch = delta_y * SCALE_PITCH
             desired_yaw = 0
 
             roll_thrust = pid_roll.output_signal(desired_roll, [current_orien[0], previous_orien[0]])
             pitch_thrust = pid_pitch.output_signal(desired_pitch, [current_orien[1], previous_orien[1]])
-            yaw_thrust = pid_yaw.output_signal(desired_yaw, [current_orien[2], previous_orien[2]])
-            # roll_thrust = 0
-            # pitch_thrust = 0
-            # yaw_thrust = 0
+            yaw_thrust = -pid_yaw.output_signal(desired_yaw, [current_orien[2], previous_orien[2]])
             # END OF TODO
 
             # For debugging purposes you can uncomment, but keep in mind that this slows down the simulation
@@ -159,9 +158,10 @@ def run_single_task(*, wind: bool, rotated_gates: bool, rendering_freq: float, f
                 desired_thrust, roll_thrust=roll_thrust,
                 pitch_thrust=pitch_thrust, yaw_thrust=yaw_thrust
             )
-            
+
         current_pos, _ = drone_simulator.position_sensor()
-        assert np.linalg.norm(np.array(current_pos) - np.array(pos_targets[-1])) < 0.2, "Drone did not reach the final target!"
+        assert np.linalg.norm(
+            np.array(current_pos) - np.array(pos_targets[-1])) < 0.2, "Drone did not reach the final target!"
         print(f"Task ({task_label}) completed successfully!")
     finally:
         # Ensure viewer is closed before the next run to avoid multiple open windows.
@@ -172,12 +172,12 @@ def run_single_task(*, wind: bool, rotated_gates: bool, rendering_freq: float, f
 
 
 def main(
-    wind: bool = False,
-    rotated_gates: bool = False,
-    all_tasks: bool = False,
-    runs: int = 10,
-    rendering_freq: float = 0.3,
-    fixed_track: bool = False,
+        wind: bool = False,
+        rotated_gates: bool = False,
+        all_tasks: bool = False,
+        runs: int = 10,
+        rendering_freq: float = 3.0,
+        fixed_track: bool = False,
 ) -> None:
     """
     Run the drone control simulation.
@@ -188,7 +188,6 @@ def main(
         all_tasks: Run all four combinations of wind/rotated gates.
         runs: How many times to repeat each selected task.
         rendering_freq: Viewer rendering frequency multiplier (lower slows playback).
-        fixed_track: Randomly-generated or default obstacle track.
     """
     task_list = []
     if all_tasks:

@@ -22,13 +22,16 @@ class PID:
         self.output_limits = output_limits
         # END OF TODO
 
-    def update_components(self, sensor_readings: list[float]):
+    def update_components(self, error: list[float]):
         """
         Update the PID components.
+        :param error: errors of the PID component
         """
-        if len(sensor_readings) == 2:
-            self.current_sum += sensor_readings[0]
-            self.current_difference = sensor_readings[1] - sensor_readings[0]
+        if len(error) == 2:
+            current_error = error[0]
+            previous_error = error[1]
+            self.current_sum += current_error * self.sensor_period
+            self.current_difference = (current_error - previous_error) / self.sensor_period
         else:
             raise NotImplemented("Non-linear derivative calculation is not yet implemented")
 
@@ -43,11 +46,15 @@ class PID:
         :param sensor_readings: list of the current and previous values, in reverse historical order.
         :return: the output signal for the commanded variable.
         """
-        self.update_components(sensor_readings)
-        adjustment = commanded_variable - sensor_readings[0]
-        proportional = self.gain_prop * adjustment
+        current_error = commanded_variable - sensor_readings[0]
+        previous_error = commanded_variable - sensor_readings[1]
+        self.update_components([current_error, previous_error])
+
+        # Scale
+        proportional = self.gain_prop * current_error
         derivative = self.gain_der * self.current_difference
-        integral = self.sensor_period * self.current_sum
+        integral = self.gain_int * self.current_sum
+
         output = proportional + derivative + integral
         output = np.clip(output, self.output_limits[0], self.output_limits[1])
         return output
