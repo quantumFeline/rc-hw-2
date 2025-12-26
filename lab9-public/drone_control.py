@@ -1,10 +1,10 @@
 import numpy as np
 import pandas as pd
-import math
 import tyro
 import mujoco
 from mujoco import viewer
 from scipy.spatial.transform import Rotation as R
+
 from drone_simulator import DroneSimulator
 from pid import PID
 
@@ -58,11 +58,11 @@ def run_single_task(*, wind: bool, rotated_gates: bool, rendering_freq: float, f
     view.cam.fixedcamid = model.camera("track").id
 
     pos_targets = [
-        [0, 0, 1], 
+        [0, 0, 1], # drone initialization
         data.body("red_gate").xpos.copy().tolist(),
         data.body("green_gate").xpos.copy().tolist(),
         data.body("blue_gate").xpos.copy().tolist(),
-        [-8, 0, 1]
+        [-8, 0, 1] # drone end position
     ]
 
     yaw_quat_targets = [
@@ -107,6 +107,7 @@ def run_single_task(*, wind: bool, rotated_gates: bool, rendering_freq: float, f
     )
 
     # TODO: Define additional variables if needed
+    next_target_i = 1
     # END OF TODO
 
     try:
@@ -118,13 +119,18 @@ def run_single_task(*, wind: bool, rotated_gates: bool, rendering_freq: float, f
                 break
             
             # TODO: define the current target position
-            pos_target = pos_targets[0].copy()
+            if np.linalg.norm(np.array(current_pos) - np.array(pos_targets[next_target_i])) < 0.2:
+                next_target_i += 1
+            pos_target = pos_targets[next_target_i].copy()
             # END OF TODO
 
             # TODO: use PID controllers to steer the drone
+
+            def horizontal_distance(target, current_position):
+                return np.linalg.norm(np.array(current_position[0:2]) - np.array(target[0:2]))
             desired_thrust = 3.2496
 
-            desired_roll = 0
+            desired_roll = horizontal_distance(pos_target, current_pos) * desired_thrust
             desired_pitch = 0
             desired_yaw = 0
 
@@ -135,10 +141,10 @@ def run_single_task(*, wind: bool, rotated_gates: bool, rendering_freq: float, f
 
             # For debugging purposes you can uncomment, but keep in mind that this slows down the simulation
             
-            # data = np.array([pos_target + [desired_roll, desired_pitch, desired_yaw], np.concat([current_pos, current_orien])]).T
-            # row_names = ["x", "y", "z", "roll", "pitch", "yaw"]
-            # headers = ["desired", "current"]
-            # print(pd.DataFrame(data, index=row_names, columns=headers))
+            data = np.array([pos_target + [desired_roll, desired_pitch, desired_yaw], np.concat([current_pos, current_orien])]).T
+            row_names = ["x", "y", "z", "roll", "pitch", "yaw"]
+            headers = ["desired", "current"]
+            print(pd.DataFrame(data, index=row_names, columns=headers))
 
             drone_simulator.sim_step(
                 desired_thrust, roll_thrust=roll_thrust,
@@ -161,7 +167,7 @@ def main(
     rotated_gates: bool = False,
     all_tasks: bool = False,
     runs: int = 10,
-    rendering_freq: float = 3.0,
+    rendering_freq: float = 0.3,
     fixed_track: bool = False,
 ) -> None:
     """
