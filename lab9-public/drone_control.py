@@ -78,17 +78,17 @@ def run_single_task(*, wind: bool, rotated_gates: bool, rendering_freq: float, f
     # TODO: Design PID control
     pid_roll = PID(
         gain_prop = 0.1, gain_int = 0, gain_der = 0,
-        sensor_period = model.opt.timestep, output_limits=(-100, 100)
+        sensor_period = model.opt.timestep, output_limits=(-1, 1)
     )
 
     pid_pitch = PID(
         gain_prop = .1, gain_int = 0, gain_der = 0,
-        sensor_period = model.opt.timestep, output_limits=(-100, 100)
+        sensor_period = model.opt.timestep, output_limits=(-0.5, 0.5)
     )
 
     pid_yaw = PID(
         gain_prop = .1, gain_int = 0, gain_der = 0,
-        sensor_period = model.opt.timestep, output_limits=(-100, 100)
+        sensor_period = model.opt.timestep, output_limits=(-1, 1)
     )
     # END OF TODO
 
@@ -109,8 +109,9 @@ def run_single_task(*, wind: bool, rotated_gates: bool, rendering_freq: float, f
     # TODO: Define additional variables if needed
     next_target_i = 1
     BASE_THRUST = 3.2496
-    SCALE_ROLL = 0.1
-    SCALE_PITCH = 0.1
+    SCALE_X = 0.01
+    SCALE_Y = 0.01
+    SCALE_Z = 0.01
     # END OF TODO
 
     try:
@@ -132,12 +133,13 @@ def run_single_task(*, wind: bool, rotated_gates: bool, rendering_freq: float, f
             def to_drone_coordinates(target_pos, drone_pos, drone_angle):
                 pass
 
-            desired_thrust = BASE_THRUST
-            delta_x = current_pos[0] - pos_target[0]
-            delta_y = current_pos[1] - pos_target[1]
+            delta_x = pos_target[0] - current_pos[0]
+            delta_y = pos_target[1] - current_pos[1]
+            delta_z = pos_target[2] - current_pos[2]
 
-            desired_roll = 0#delta_x * SCALE_ROLL
-            desired_pitch = delta_y * SCALE_PITCH
+            desired_thrust = BASE_THRUST + delta_z * SCALE_Z
+            desired_roll = delta_y * SCALE_X
+            desired_pitch = delta_x * SCALE_X
             desired_yaw = 0
 
             roll_thrust = pid_roll.output_signal(desired_roll, [current_orien[0], previous_orien[0]])
