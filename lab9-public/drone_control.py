@@ -77,17 +77,17 @@ def run_single_task(*, wind: bool, rotated_gates: bool, rendering_freq: float, f
 
     # TODO: Design PID control
     pid_roll = PID(
-        gain_prop = 1, gain_int = 1, gain_der = 1,
+        gain_prop = 1, gain_int = 0, gain_der = 0,
         sensor_period = model.opt.timestep, output_limits=(-100, 100)
     )
 
     pid_pitch = PID(
-        gain_prop = 1, gain_int = 1, gain_der = 1,
+        gain_prop = 1, gain_int = 0, gain_der = 0,
         sensor_period = model.opt.timestep, output_limits=(-100, 100)
     )
 
     pid_yaw = PID(
-        gain_prop = 1, gain_int = 1, gain_der = 1,
+        gain_prop = 1, gain_int = 0, gain_der = 0,
         sensor_period = model.opt.timestep, output_limits=(-100, 100)
     )
     # END OF TODO
@@ -108,6 +108,7 @@ def run_single_task(*, wind: bool, rotated_gates: bool, rendering_freq: float, f
 
     # TODO: Define additional variables if needed
     next_target_i = 1
+    BASE_THRUST = 3.2496
     # END OF TODO
 
     try:
@@ -127,23 +128,31 @@ def run_single_task(*, wind: bool, rotated_gates: bool, rendering_freq: float, f
             # TODO: use PID controllers to steer the drone
 
             def horizontal_distance(target, current_position):
-                return np.linalg.norm(np.array(current_position[0:2]) - np.array(target[0:2]))
-            desired_thrust = 3.2496
+                return float(np.linalg.norm(np.array(target[0:2] - np.array(current_position[0:2]))))
 
-            desired_roll = horizontal_distance(pos_target, current_pos) * desired_thrust
-            desired_pitch = 0
+            def vertical_distance(target, current_position):
+                return target[2] - current_position[2]
+            desired_thrust = BASE_THRUST
+
+            desired_roll  = horizontal_distance(pos_target, current_pos)
+            desired_pitch =   vertical_distance(pos_target, current_pos)
             desired_yaw = 0
 
             roll_thrust = pid_roll.output_signal(desired_roll, [current_orien[0], previous_orien[0]])
             pitch_thrust = pid_pitch.output_signal(desired_pitch, [current_orien[1], previous_orien[1]])
-            yaw_thrust = -pid_yaw.output_signal(desired_yaw, [current_orien[2], previous_orien[2]])
+            yaw_thrust = pid_yaw.output_signal(desired_yaw, [current_orien[2], previous_orien[2]])
+            # roll_thrust = 0
+            # pitch_thrust = 0
+            # yaw_thrust = 0
             # END OF TODO
 
             # For debugging purposes you can uncomment, but keep in mind that this slows down the simulation
-            
-            data = np.array([pos_target + [desired_roll, desired_pitch, desired_yaw], np.concat([current_pos, current_orien])]).T
+
+            desired_col = pos_target + [desired_roll, desired_pitch, desired_yaw]
+            current_col = np.concat([current_pos, current_orien])
+            data = np.array([desired_col, current_col, desired_col - current_col]).T
             row_names = ["x", "y", "z", "roll", "pitch", "yaw"]
-            headers = ["desired", "current"]
+            headers = ["desired", "current", "difference"]
             print(pd.DataFrame(data, index=row_names, columns=headers))
 
             drone_simulator.sim_step(
