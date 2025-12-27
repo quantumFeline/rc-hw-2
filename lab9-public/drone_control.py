@@ -77,18 +77,23 @@ def run_single_task(*, wind: bool, rotated_gates: bool, rendering_freq: float, f
 
     # TODO: Design PID control
     pid_roll = PID(
-        gain_prop = 0.1, gain_int = 0, gain_der = 0,
-        sensor_period = model.opt.timestep, output_limits=(-1, 1)
+        gain_prop = 1, gain_int = .2, gain_der = .2,
+        sensor_period = model.opt.timestep, output_limits=(-2, 2)
     )
 
     pid_pitch = PID(
-        gain_prop = .1, gain_int = 0, gain_der = 0,
-        sensor_period = model.opt.timestep, output_limits=(-0.5, 0.5)
+        gain_prop = 1, gain_int = .2, gain_der = .2,
+        sensor_period = model.opt.timestep, output_limits=(-2, 2)
     )
 
     pid_yaw = PID(
-        gain_prop = .1, gain_int = 0, gain_der = 0,
-        sensor_period = model.opt.timestep, output_limits=(-1, 1)
+        gain_prop = .1, gain_int = .1, gain_der = .1,
+        sensor_period = model.opt.timestep, output_limits=(-0.5, 0.5)
+    )
+
+    pid_altitude = PID(
+        gain_prop = 1, gain_int = 0, gain_der = .1,
+        sensor_period = model.opt.timestep, output_limits=(-3, 3)
     )
     # END OF TODO
 
@@ -123,9 +128,11 @@ def run_single_task(*, wind: bool, rotated_gates: bool, rendering_freq: float, f
                 break
 
             # TODO: define the current target position
-            if np.linalg.norm(np.array(current_pos) - np.array(pos_targets[next_target_i])) < 0.2:
+            if np.linalg.norm(np.array(current_pos) - np.array(pos_targets[next_target_i])) < 0.1:
+                print("Reached target", next_target_i)
                 next_target_i += 1
             pos_target = pos_targets[next_target_i].copy()
+            yaw_angle_target = yaw_angle_targets[next_target_i].copy()
             # END OF TODO
 
             # TODO: use PID controllers to steer the drone
@@ -133,24 +140,35 @@ def run_single_task(*, wind: bool, rotated_gates: bool, rendering_freq: float, f
             def to_drone_coordinates(target_pos, drone_pos, drone_angle):
                 delta_x_absolute = target_pos[0] - drone_pos[0]
                 delta_y_absolute = target_pos[1] - drone_pos[1]
+                delta_z_absolute = target_pos[2] - drone_pos[2]
                 delta_xy_absolute = np.linalg.norm((delta_x_absolute, delta_y_absolute))
                 # Angle order is xyz, i.e. over the x-axis (roll), over y (pitch), over z (yaw)
-                drone_yaw = drone_angle[2]
-                delta_x_rel = -np.cos(drone_yaw) * delta_xy_absolute
-                delta_y_rel = np.sin(drone_yaw) * delta_xy_absolute
-                return delta_x_rel, delta_y_rel
+                drone_yaw_absolute = drone_angle[2]
+                target_yaw_absolute = np.degrees(np.arctan2(delta_y_absolute, delta_x_absolute))
+                angle_to_target = target_yaw_absolute - drone_yaw_absolute
+                # Yes, this does not account for drone's angle to z-axis. It's fine as long as it doesn't flip over.
+                delta_x_rel = np.cos(np.radians(angle_to_target)) * delta_xy_absolute
+                delta_y_rel = -np.sin(np.radians(angle_to_target)) * delta_xy_absolute
+                print("delta_y_rel:", delta_y_rel)
+                return delta_x_rel, delta_y_rel, delta_z_absolute
 
-            delta_x, delta_y = to_drone_coordinates(pos_target, current_pos, current_orien)
-            delta_z = pos_target[2] - current_pos[2]
+            def calc_desired_yaw(drone_angle, gate_angle):
+                # Angle order is xyz, i.e. over the x-axis (roll), over y (pitch), over z (yaw)
+                drone_yaw_absolute = drone_angle[2]
+                desired_yaw_angle = gate_angle - drone_yaw_absolute
+                return desired_yaw_angle
 
-            desired_thrust = BASE_THRUST + delta_z * SCALE_Z
+            delta_x, delta_y, delta_z = to_drone_coordinates(pos_target, current_pos, current_orien)
+            target_yaw = calc_desired_yaw(current_orien, yaw_angle_target)
+
+            desired_thrust = BASE_THRUST + pid_altitude.output_signal(pos_target[2], [current_pos[2], previous_pos[2]])
             desired_roll = delta_y * SCALE_X
-            desired_pitch = delta_x * SCALE_X
-            desired_yaw = 0
+            desired_pitch = np.clip(delta_x * SCALE_X, -30, 30) # Can't pitch too aggressively.
+            desired_yaw = 0#target_yaw * SCALE_Y
 
             roll_thrust = -pid_roll.output_signal(desired_roll, [current_orien[0], previous_orien[0]])
             pitch_thrust = -pid_pitch.output_signal(desired_pitch, [current_orien[1], previous_orien[1]])
-            yaw_thrust = -pid_yaw.output_signal(desired_yaw, [current_orien[2], previous_orien[2]])
+            yaw_thrust = pid_yaw.output_signal(desired_yaw, [current_orien[2], previous_orien[2]])
             # END OF TODO
 
             # For debugging purposes you can uncomment, but keep in mind that this slows down the simulation
