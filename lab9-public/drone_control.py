@@ -78,35 +78,33 @@ def run_single_task(*, wind: bool, rotated_gates: bool, rendering_freq: float, f
     # TODO: Design PID control
     # Altitude
     pid_altitude = PID(
-        gain_prop=8, gain_int=1, gain_der=5.0,
-        sensor_period=model.opt.timestep, output_limits=(-10, 10)
+        gain_prop=8.0, gain_int=1.0, gain_der=5.0,
+        sensor_period=model.opt.timestep, output_limits=(-4, 4)
     )
 
-    # Position
     pid_x = PID(
-        gain_prop=10, gain_int=0.01, gain_der=10,
-        sensor_period=model.opt.timestep, output_limits=(-1.5, 1.5)
+        gain_prop=6.0, gain_int=0.1, gain_der=10.0,
+        sensor_period=model.opt.timestep, output_limits=(-10, 10)
     )
 
     pid_y = PID(
-        gain_prop=10, gain_int=0.02, gain_der=10,
+        gain_prop=8.0, gain_int=0.05, gain_der=10.0,
         sensor_period=model.opt.timestep, output_limits=(-10, 10)
     )
 
-    # Attitude (inner loop)
     pid_roll = PID(
-        gain_prop=0.6, gain_int=0.05, gain_der=0.05,
-        sensor_period=model.opt.timestep, output_limits=(-5, 5)
+        gain_prop=0.8, gain_int=0.03, gain_der=0.1,
+        sensor_period=model.opt.timestep, output_limits=(-5.0, 5.0)
     )
 
     pid_pitch = PID(
-        gain_prop=0.6, gain_int=0.05, gain_der=0.05,
-        sensor_period=model.opt.timestep, output_limits=(-5, 5)
+        gain_prop=0.5, gain_int=0.05, gain_der=0.05,
+        sensor_period=model.opt.timestep, output_limits=(-5.0, 5.0)
     )
 
     pid_yaw = PID(
-        gain_prop=2.5, gain_int=0.6, gain_der=1.5,
-        sensor_period=model.opt.timestep, output_limits=(-5, 5)
+        gain_prop=3, gain_int=0.6, gain_der=1.5,
+        sensor_period=model.opt.timestep, output_limits=(-5.0, 5.0)
     )
     # END OF TODO
 
@@ -141,7 +139,7 @@ def run_single_task(*, wind: bool, rotated_gates: bool, rendering_freq: float, f
             # TODO: define the current target position
             distance_to_target = np.linalg.norm(np.array(current_pos) - np.array(pos_targets[next_target_i]))
             if distance_to_target < REACH_THRESHOLD:
-                print("Reached target", next_target_i)
+                #print("Reached target", next_target_i)
                 next_target_i += 1
             if next_target_i >= len(pos_targets):  # failsafe
                 next_target_i = len(pos_targets) - 1
@@ -163,12 +161,12 @@ def run_single_task(*, wind: bool, rotated_gates: bool, rendering_freq: float, f
 
             # For debugging purposes you can uncomment, but keep in mind that this slows down the simulation
 
-            desired_col = pos_target + [desired_roll, desired_pitch, desired_yaw]
-            current_col = np.concat([current_pos, current_orien])
-            data = np.array([desired_col, current_col, desired_col - current_col]).T
-            row_names = ["x", "y", "z", "roll", "pitch", "yaw"]
-            headers = ["desired", "current", "difference"]
-            print(pd.DataFrame(data, index=row_names, columns=headers))
+            # desired_col = pos_target + [desired_roll, desired_pitch, desired_yaw]
+            # current_col = np.concat([current_pos, current_orien])
+            # data = np.array([desired_col, current_col, desired_col - current_col]).T
+            # row_names = ["x", "y", "z", "roll", "pitch", "yaw"]
+            # headers = ["desired", "current", "difference"]
+            # print(pd.DataFrame(data, index=row_names, columns=headers))
 
             drone_simulator.sim_step(
                 desired_thrust, roll_thrust=roll_thrust,
@@ -190,7 +188,7 @@ def run_single_task(*, wind: bool, rotated_gates: bool, rendering_freq: float, f
 def main(
         wind: bool = True,
         rotated_gates: bool = True,
-        all_tasks: bool = False,
+        all_tasks: bool = True,
         runs: int = 10,
         rendering_freq: float = 3.0,
         fixed_track: bool = False,
