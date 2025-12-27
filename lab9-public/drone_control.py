@@ -76,34 +76,37 @@ def run_single_task(*, wind: bool, rotated_gates: bool, rendering_freq: float, f
     yaw_angle_targets = [xquat_to_euler(xquat)[2] for xquat in yaw_quat_targets]
 
     # TODO: Design PID control
-    pid_roll = PID(
-        gain_prop = 1.2, gain_int = .0, gain_der = .2,
-        sensor_period = model.opt.timestep, output_limits=(-2, 2)
+    # Altitude
+    pid_altitude = PID(
+        gain_prop=10.0, gain_int=0.0, gain_der=5.0,
+        sensor_period=model.opt.timestep, output_limits=(-3, 3)
     )
 
-    pid_pitch = PID(
-        gain_prop = 1, gain_int = .2, gain_der = .2,
-        sensor_period = model.opt.timestep, output_limits=(-2, 2)
-    )
-
-    pid_yaw = PID(
-        gain_prop = .8, gain_int = .1, gain_der = 0.5,
-        sensor_period = model.opt.timestep, output_limits=(-2, 2)
-    )
-
+    # Position
     pid_x = PID(
-        gain_prop = 4, gain_int = 0.1, gain_der = 2.0,
-        sensor_period = model.opt.timestep, output_limits=(-15, 15)
+        gain_prop=4.0, gain_int=0.0, gain_der=0.5,
+        sensor_period=model.opt.timestep, output_limits=(-15, 15)
     )
 
     pid_y = PID(
-        gain_prop = 4, gain_int = 0.1, gain_der = 2.0,
-        sensor_period = model.opt.timestep, output_limits=(-15, 15)
+        gain_prop=4.0, gain_int=0.0, gain_der=0.5,
+        sensor_period=model.opt.timestep, output_limits=(-15, 15)
     )
 
-    pid_altitude = PID(
-        gain_prop = 1, gain_int = 0, gain_der = .1,
-        sensor_period = model.opt.timestep, output_limits=(-3, 3)
+    # Attitude (inner loop)
+    pid_roll = PID(
+        gain_prop=1.5, gain_int=0.0, gain_der=0.3,
+        sensor_period=model.opt.timestep, output_limits=(-2, 2)
+    )
+
+    pid_pitch = PID(
+        gain_prop=1.5, gain_int=0.0, gain_der=0.3,
+        sensor_period=model.opt.timestep, output_limits=(-2, 2)
+    )
+
+    pid_yaw = PID(
+        gain_prop=0.8, gain_int=0.0, gain_der=0.4,
+        sensor_period=model.opt.timestep, output_limits=(-2, 2)
     )
     # END OF TODO
 
@@ -124,8 +127,8 @@ def run_single_task(*, wind: bool, rotated_gates: bool, rendering_freq: float, f
     # TODO: Define additional variables if needed
     next_target_i = 1
     BASE_THRUST = 3.2496
-    REACH_THRESHOLD = 0.5
-    ROTATE_THRESHOLD = 0.6
+    REACH_THRESHOLD = 0.3
+    ROTATE_THRESHOLD = 0.4
     # END OF TODO
 
     try:
@@ -160,6 +163,9 @@ def run_single_task(*, wind: bool, rotated_gates: bool, rendering_freq: float, f
                 print("delta_y_rel:", delta_y_rel)
                 return delta_x_rel, delta_y_rel, z_err
 
+            def wrap_angle(angle):
+                return (angle + 180) % 360 - 180
+
             error_world = np.array(current_pos) - np.array(pos_target)
             error_body = to_drone_coordinate_system(error_world, current_orien)
 
@@ -175,14 +181,14 @@ def run_single_task(*, wind: bool, rotated_gates: bool, rendering_freq: float, f
                 desired_yaw = yaw_angle_target  # Match gate orientation
             else:
                 target_direction = np.array(pos_target) - np.array(current_pos)
-                desired_yaw = np.degrees(np.arctan2(target_direction[1], target_direction[0]))  # Point towards it
-            yaw_diff = desired_yaw - current_orien[2]
-            yaw_diff = (yaw_diff + 180) % 360 - 180
-            desired_yaw_wrapped = current_orien[2] + yaw_diff
+                desired_yaw = np.degrees(np.arctan2(target_direction[1], target_direction[0]))  # Point towards the gate
+
+            desired_yaw_wrapped = wrap_angle(desired_yaw - current_orien[2])
+            pre_yaw_wrapped = wrap_angle(desired_yaw - previous_orien[2])
 
             roll_thrust = -pid_roll.output_signal(desired_roll, [current_orien[0], previous_orien[0]])
             pitch_thrust = -pid_pitch.output_signal(desired_pitch, [current_orien[1], previous_orien[1]])
-            yaw_thrust = -pid_yaw.output_signal(desired_yaw_wrapped, [current_orien[2], previous_orien[2]])
+            yaw_thrust = pid_yaw.output_signal(0, [desired_yaw_wrapped, pre_yaw_wrapped])
             # END OF TODO
 
             # For debugging purposes you can uncomment, but keep in mind that this slows down the simulation
