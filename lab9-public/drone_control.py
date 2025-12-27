@@ -109,9 +109,9 @@ def run_single_task(*, wind: bool, rotated_gates: bool, rendering_freq: float, f
     # TODO: Define additional variables if needed
     next_target_i = 1
     BASE_THRUST = 3.2496
-    SCALE_X = 0.01
-    SCALE_Y = 0.01
-    SCALE_Z = 0.01
+    SCALE_X = 1
+    SCALE_Y = 0.1
+    SCALE_Z = 1
     # END OF TODO
 
     try:
@@ -131,10 +131,16 @@ def run_single_task(*, wind: bool, rotated_gates: bool, rendering_freq: float, f
             # TODO: use PID controllers to steer the drone
 
             def to_drone_coordinates(target_pos, drone_pos, drone_angle):
-                pass
+                delta_x_absolute = target_pos[0] - drone_pos[0]
+                delta_y_absolute = target_pos[1] - drone_pos[1]
+                delta_xy_absolute = np.linalg.norm((delta_x_absolute, delta_y_absolute))
+                # Angle order is xyz, i.e. over the x-axis (roll), over y (pitch), over z (yaw)
+                drone_yaw = drone_angle[2]
+                delta_x_rel = -np.cos(drone_yaw) * delta_xy_absolute
+                delta_y_rel = np.sin(drone_yaw) * delta_xy_absolute
+                return delta_x_rel, delta_y_rel
 
-            delta_x = pos_target[0] - current_pos[0]
-            delta_y = pos_target[1] - current_pos[1]
+            delta_x, delta_y = to_drone_coordinates(pos_target, current_pos, current_orien)
             delta_z = pos_target[2] - current_pos[2]
 
             desired_thrust = BASE_THRUST + delta_z * SCALE_Z
@@ -142,8 +148,8 @@ def run_single_task(*, wind: bool, rotated_gates: bool, rendering_freq: float, f
             desired_pitch = delta_x * SCALE_X
             desired_yaw = 0
 
-            roll_thrust = pid_roll.output_signal(desired_roll, [current_orien[0], previous_orien[0]])
-            pitch_thrust = pid_pitch.output_signal(desired_pitch, [current_orien[1], previous_orien[1]])
+            roll_thrust = -pid_roll.output_signal(desired_roll, [current_orien[0], previous_orien[0]])
+            pitch_thrust = -pid_pitch.output_signal(desired_pitch, [current_orien[1], previous_orien[1]])
             yaw_thrust = -pid_yaw.output_signal(desired_yaw, [current_orien[2], previous_orien[2]])
             # END OF TODO
 
