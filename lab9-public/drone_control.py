@@ -78,35 +78,35 @@ def run_single_task(*, wind: bool, rotated_gates: bool, rendering_freq: float, f
     # TODO: Design PID control
     # Altitude
     pid_altitude = PID(
-        gain_prop=10.0, gain_int=0.1, gain_der=5.0,
+        gain_prop=10, gain_int=1, gain_der=5.0,
         sensor_period=model.opt.timestep, output_limits=(-10, 10)
     )
 
     # Position
     pid_x = PID(
-        gain_prop=1.5, gain_int=0.01, gain_der=0.4,
-        sensor_period=model.opt.timestep, output_limits=(-3, 3)
+        gain_prop=0.8, gain_int=0.01, gain_der=5,
+        sensor_period=model.opt.timestep, output_limits=(-1.5, 1.5)
     )
 
     pid_y = PID(
-        gain_prop=1.5, gain_int=0.01, gain_der=0.4,
-        sensor_period=model.opt.timestep, output_limits=(-7, 7)
+        gain_prop=2, gain_int=0.02, gain_der=5,
+        sensor_period=model.opt.timestep, output_limits=(-10, 10)
     )
 
     # Attitude (inner loop)
     pid_roll = PID(
-        gain_prop=0.6, gain_int=0.0, gain_der=0.1,
-        sensor_period=model.opt.timestep, output_limits=(-2, 2)
+        gain_prop=0.6, gain_int=0.0, gain_der=0.05,
+        sensor_period=model.opt.timestep, output_limits=(-3, 3)
     )
 
     pid_pitch = PID(
-        gain_prop=0.6, gain_int=0.0, gain_der=0.1,
+        gain_prop=0.6, gain_int=0.0, gain_der=0.05,
         sensor_period=model.opt.timestep, output_limits=(-2, 2)
     )
 
     pid_yaw = PID(
-        gain_prop=0.8, gain_int=0.0, gain_der=0.2,
-        sensor_period=model.opt.timestep, output_limits=(-1, 1)
+        gain_prop=2.5, gain_int=0.5, gain_der=1.5,
+        sensor_period=model.opt.timestep, output_limits=(-2, 2)
     )
     # END OF TODO
 
@@ -127,8 +127,8 @@ def run_single_task(*, wind: bool, rotated_gates: bool, rendering_freq: float, f
     # TODO: Define additional variables if needed
     next_target_i = 1
     BASE_THRUST = 3.2496
-    REACH_THRESHOLD = 1.2
-    ROTATE_THRESHOLD = 1.2
+    REACH_THRESHOLD = 0.2
+    ROTATE_THRESHOLD = 0.2
     # END OF TODO
 
     try:
