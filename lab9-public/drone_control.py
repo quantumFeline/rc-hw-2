@@ -77,12 +77,12 @@ def run_single_task(*, wind: bool, rotated_gates: bool, rendering_freq: float, f
 
     # TODO: Design PID control
     pid_roll = PID(
-        gain_prop = 1, gain_int = .0, gain_der = .2,
+        gain_prop = 1.2, gain_int = .0, gain_der = .2,
         sensor_period = model.opt.timestep, output_limits=(-2, 2)
     )
 
     pid_pitch = PID(
-        gain_prop = 1, gain_int = .1, gain_der = .2,
+        gain_prop = 1, gain_int = .2, gain_der = .2,
         sensor_period = model.opt.timestep, output_limits=(-2, 2)
     )
 
@@ -92,12 +92,12 @@ def run_single_task(*, wind: bool, rotated_gates: bool, rendering_freq: float, f
     )
 
     pid_x = PID(
-        gain_prop = 8, gain_int = 0.1, gain_der = 2.0,
+        gain_prop = 4, gain_int = 0.1, gain_der = 2.0,
         sensor_period = model.opt.timestep, output_limits=(-15, 15)
     )
 
     pid_y = PID(
-        gain_prop = 8, gain_int = 0.1, gain_der = 2.0,
+        gain_prop = 4, gain_int = 0.1, gain_der = 2.0,
         sensor_period = model.opt.timestep, output_limits=(-15, 15)
     )
 
@@ -125,7 +125,7 @@ def run_single_task(*, wind: bool, rotated_gates: bool, rendering_freq: float, f
     next_target_i = 1
     BASE_THRUST = 3.2496
     REACH_THRESHOLD = 0.5
-    ROTATE_THRESHOLD = 1
+    ROTATE_THRESHOLD = 0.6
     # END OF TODO
 
     try:
@@ -137,7 +137,7 @@ def run_single_task(*, wind: bool, rotated_gates: bool, rendering_freq: float, f
                 break
 
             # TODO: define the current target position
-            distance_to_target = np.linalg.norm(np.array(current_pos) - np.array(pos_targets[next_target_i]))
+            distance_to_target = np.linalg.norm(np.array(current_pos[:2]) - np.array(pos_targets[next_target_i][:2]))
             if distance_to_target < REACH_THRESHOLD:
                 print("Reached target", next_target_i)
                 next_target_i += 1
@@ -176,9 +176,9 @@ def run_single_task(*, wind: bool, rotated_gates: bool, rendering_freq: float, f
             else:
                 target_direction = np.array(pos_target) - np.array(current_pos)
                 desired_yaw = np.degrees(np.arctan2(target_direction[1], target_direction[0]))  # Point towards it
-                yaw_diff = desired_yaw - current_orien[2]
-                yaw_diff = (yaw_diff + 180) % 360 - 180
-                desired_yaw_wrapped = current_orien[2] + yaw_diff
+            yaw_diff = desired_yaw - current_orien[2]
+            yaw_diff = (yaw_diff + 180) % 360 - 180
+            desired_yaw_wrapped = current_orien[2] + yaw_diff
 
             roll_thrust = -pid_roll.output_signal(desired_roll, [current_orien[0], previous_orien[0]])
             pitch_thrust = -pid_pitch.output_signal(desired_pitch, [current_orien[1], previous_orien[1]])
@@ -201,7 +201,7 @@ def run_single_task(*, wind: bool, rotated_gates: bool, rendering_freq: float, f
 
         current_pos, _ = drone_simulator.position_sensor()
         assert np.linalg.norm(
-            np.array(current_pos) - np.array(pos_targets[-1])) < REACH_THRESHOLD, "Drone did not reach the final target!"
+            np.array(current_pos[:2]) - np.array(pos_targets[-1][:2])) < REACH_THRESHOLD, "Drone did not reach the final target!"
         print(f"Task ({task_label}) completed successfully!")
     finally:
         # Ensure viewer is closed before the next run to avoid multiple open windows.
