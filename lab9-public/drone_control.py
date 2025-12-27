@@ -93,17 +93,17 @@ def run_single_task(*, wind: bool, rotated_gates: bool, rendering_freq: float, f
     )
 
     pid_roll = PID(
-        gain_prop=0.8, gain_int=0.03, gain_der=0.1,
+        gain_prop=0.8, gain_int=0.05, gain_der=0.1,
         sensor_period=model.opt.timestep, output_limits=(-5.0, 5.0)
     )
 
     pid_pitch = PID(
-        gain_prop=0.5, gain_int=0.05, gain_der=0.05,
+        gain_prop=0.5, gain_int=0.07, gain_der=0.05,
         sensor_period=model.opt.timestep, output_limits=(-5.0, 5.0)
     )
 
     pid_yaw = PID(
-        gain_prop=3, gain_int=0.6, gain_der=1.5,
+        gain_prop=3, gain_int=0.8, gain_der=1.5,
         sensor_period=model.opt.timestep, output_limits=(-5.0, 5.0)
     )
     # END OF TODO

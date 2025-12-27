@@ -20,6 +20,7 @@ class PID:
         self.current_sum = 0 # For integral component.
         self.current_difference = 0 # For derivative component.
         self.output_limits = output_limits
+        self.fadeout = 0.97
         # END OF TODO
 
     def update_components(self, error: list[float]):
@@ -30,7 +31,7 @@ class PID:
         if len(error) == 2:
             current_error = error[0]
             previous_error = error[1]
-            self.current_sum += current_error * self.sensor_period
+            self.current_sum = self.current_sum * self.fadeout + current_error * self.sensor_period
             self.current_difference = (current_error - previous_error) / self.sensor_period
         else:
             raise NotImplemented("Non-linear derivative calculation is not yet implemented")
