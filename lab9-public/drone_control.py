@@ -78,35 +78,35 @@ def run_single_task(*, wind: bool, rotated_gates: bool, rendering_freq: float, f
     # TODO: Design PID control
     # Altitude
     pid_altitude = PID(
-        gain_prop=10, gain_int=1, gain_der=5.0,
+        gain_prop=8, gain_int=1, gain_der=5.0,
         sensor_period=model.opt.timestep, output_limits=(-10, 10)
     )
 
     # Position
     pid_x = PID(
-        gain_prop=0.8, gain_int=0.01, gain_der=5,
+        gain_prop=10, gain_int=0.01, gain_der=10,
         sensor_period=model.opt.timestep, output_limits=(-1.5, 1.5)
     )
 
     pid_y = PID(
-        gain_prop=2, gain_int=0.02, gain_der=5,
+        gain_prop=10, gain_int=0.02, gain_der=10,
         sensor_period=model.opt.timestep, output_limits=(-10, 10)
     )
 
     # Attitude (inner loop)
     pid_roll = PID(
-        gain_prop=0.6, gain_int=0.0, gain_der=0.05,
-        sensor_period=model.opt.timestep, output_limits=(-3, 3)
+        gain_prop=0.6, gain_int=0.05, gain_der=0.05,
+        sensor_period=model.opt.timestep, output_limits=(-5, 5)
     )
 
     pid_pitch = PID(
-        gain_prop=0.6, gain_int=0.0, gain_der=0.05,
-        sensor_period=model.opt.timestep, output_limits=(-2, 2)
+        gain_prop=0.6, gain_int=0.05, gain_der=0.05,
+        sensor_period=model.opt.timestep, output_limits=(-5, 5)
     )
 
     pid_yaw = PID(
-        gain_prop=2.5, gain_int=0.5, gain_der=1.5,
-        sensor_period=model.opt.timestep, output_limits=(-2, 2)
+        gain_prop=2.5, gain_int=0.6, gain_der=1.5,
+        sensor_period=model.opt.timestep, output_limits=(-5, 5)
     )
     # END OF TODO
 
@@ -121,14 +121,13 @@ def run_single_task(*, wind: bool, rotated_gates: bool, rendering_freq: float, f
     # If you want the simulation to be displayed more slowly, decrease rendering_freq
     # Note that this DOES NOT change the timestep used to approximate the physics of the simulation!
     drone_simulator = DroneSimulator(
-        model, data, view, wind_change_prob = wind_change_prob, rendering_freq = rendering_freq
+        model, data, view, wind_change_prob=wind_change_prob, rendering_freq=rendering_freq
     )
 
     # TODO: Define additional variables if needed
     next_target_i = 1
     BASE_THRUST = 3.2496
     REACH_THRESHOLD = 0.2
-    ROTATE_THRESHOLD = 0.2
     # END OF TODO
 
     try:
@@ -136,64 +135,30 @@ def run_single_task(*, wind: bool, rotated_gates: bool, rendering_freq: float, f
             current_pos, previous_pos = drone_simulator.position_sensor()
             current_orien, previous_orien = drone_simulator.orientation_sensor()
 
-            if np.linalg.norm(np.array(current_pos) - np.array(pos_targets[-1])) < REACH_THRESHOLD:
+            if np.linalg.norm(np.array(current_pos) - np.array(pos_targets[-1])) < 0.2:
                 break
 
             # TODO: define the current target position
-            distance_to_target = np.linalg.norm(np.array(current_pos[:2]) - np.array(pos_targets[next_target_i][:2]))
+            distance_to_target = np.linalg.norm(np.array(current_pos) - np.array(pos_targets[next_target_i]))
             if distance_to_target < REACH_THRESHOLD:
                 print("Reached target", next_target_i)
                 next_target_i += 1
+            if next_target_i >= len(pos_targets):  # failsafe
+                next_target_i = len(pos_targets) - 1
             pos_target = pos_targets[next_target_i].copy()
             yaw_angle_target = yaw_angle_targets[next_target_i].copy()
+
             # END OF TODO
 
             # TODO: use PID controllers to steer the drone
-
-            def to_drone_coordinate_system(target_pos_error, drone_angle):
-                x_err, y_err, z_err = target_pos_error
-                delta_xy_absolute = np.linalg.norm((x_err, y_err))
-                # Angle order is xyz, i.e. over the x-axis (roll), over y (pitch), over z (yaw)
-                drone_yaw = drone_angle[2]
-                target_err_yaw = np.degrees(np.arctan2(y_err, x_err))
-                angle_to_target = target_err_yaw - drone_yaw
-                # Yes, this does not account for drone's angle to z-axis. It's fine as long as it doesn't flip over.
-                delta_x_rel = np.cos(np.radians(angle_to_target)) * delta_xy_absolute
-                delta_y_rel = -np.sin(np.radians(angle_to_target)) * delta_xy_absolute
-                print("delta_y_rel:", delta_y_rel)
-                return delta_x_rel, delta_y_rel, z_err
-
-            def wrap_angle(angle):
-                return (angle + 180) % 360 - 180
-
-            error_world = np.array(current_pos) - np.array(pos_target)
-            error_body = to_drone_coordinate_system(error_world, current_orien)
-
-            prev_error_world = np.array(previous_pos) - np.array(pos_target)
-            prev_error_body = to_drone_coordinate_system(prev_error_world, current_orien)
-
-            desired_thrust = BASE_THRUST + pid_altitude.output_signal(0, [error_body[2], prev_error_body[2]])
-
-            desired_roll = pid_y.output_signal(0, [error_body[1], prev_error_body[1]])
-            desired_pitch = pid_x.output_signal(0, [error_body[0], prev_error_body[0]]) # Can't pitch too aggressively.
-
-            if distance_to_target < ROTATE_THRESHOLD:
-                desired_yaw = yaw_angle_target  # Match gate orientation
-            else:
-                target_direction = np.array(pos_target) - np.array(current_pos)
-                desired_yaw = np.degrees(np.arctan2(target_direction[1], target_direction[0]))  # Point towards the gate
-
-            # target_direction = np.array(pos_target) - np.array(current_pos)
-            # target_yaw = np.degrees(np.arctan2(target_direction[1], target_direction[0]))  # Point towards the gate
-            # weight = np.clip((distance_to_target - 0.3) / (1.5 - 0.3), 0, 1)
-            # desired_yaw = (weight * target_yaw) + ((1 - weight) * yaw_angle_target)
-
-            desired_yaw_wrapped = wrap_angle(desired_yaw - current_orien[2])
-            pre_yaw_wrapped = wrap_angle(desired_yaw - previous_orien[2])
+            desired_thrust = BASE_THRUST + pid_altitude.output_signal(pos_target[2], [current_pos[2], previous_pos[2]])
+            desired_pitch = pid_x.output_signal(pos_target[0], [current_pos[0], previous_pos[0]])
+            desired_roll = -pid_y.output_signal(pos_target[1], [current_pos[1], previous_pos[1]])
+            desired_yaw = yaw_angle_target  # Match gate orientation
 
             roll_thrust = -pid_roll.output_signal(desired_roll, [current_orien[0], previous_orien[0]])
             pitch_thrust = -pid_pitch.output_signal(desired_pitch, [current_orien[1], previous_orien[1]])
-            yaw_thrust = pid_yaw.output_signal(0, [desired_yaw_wrapped, pre_yaw_wrapped])
+            yaw_thrust = pid_yaw.output_signal(desired_yaw, [current_orien[2], previous_orien[2]])
             # END OF TODO
 
             # For debugging purposes you can uncomment, but keep in mind that this slows down the simulation
@@ -212,7 +177,7 @@ def run_single_task(*, wind: bool, rotated_gates: bool, rendering_freq: float, f
 
         current_pos, _ = drone_simulator.position_sensor()
         assert np.linalg.norm(
-            np.array(current_pos[:2]) - np.array(pos_targets[-1][:2])) < REACH_THRESHOLD, "Drone did not reach the final target!"
+            np.array(current_pos) - np.array(pos_targets[-1])) < REACH_THRESHOLD, "Drone did not reach the final target!"
         print(f"Task ({task_label}) completed successfully!")
     finally:
         # Ensure viewer is closed before the next run to avoid multiple open windows.
@@ -223,8 +188,8 @@ def run_single_task(*, wind: bool, rotated_gates: bool, rendering_freq: float, f
 
 
 def main(
-        wind: bool = False,
-        rotated_gates: bool = False,
+        wind: bool = True,
+        rotated_gates: bool = True,
         all_tasks: bool = False,
         runs: int = 10,
         rendering_freq: float = 3.0,
